@@ -1,0 +1,45 @@
+# Configuration file for prime gaps analysis
+
+# Data sources
+oeis_sequences:
+  gaps: 5250  # A005250: Record gaps
+  starts: 101  # A000101: Starting primes
+
+# Analysis parameters
+analysis:
+  p_threshold: 10000  # Minimum p for trend analysis
+  min_points: 20  # Minimum points for reliable regression
+  beta_threshold: 0.5  # Threshold for implausible β values
+  limit: 100000000  # Default limit for prime generation (10^8)
+
+# Progression analysis
+progressions:
+  max_q: 150  # Maximum modulus to analyze
+  require_min_primes: 100  # Minimum primes in progression
+
+# RMT simulations
+rmt:
+  matrix_sizes: [10, 20, 50, 100, 200]  # Matrix sizes to simulate
+  n_samples: 100  # Number of samples per size
+  ensembles: ['CUE', 'GUE']  # Ensembles to simulate
+
+# Plotting
+plotting:
+  style: 'seaborn-whitegrid'
+  figure_size: [10, 6]
+  dpi: 300
+  colors:
+    primary: '#1f77b4'
+    secondary: '#d62728'
+    tertiary: '#2ca02c'
+  font:
+    family: 'serif'
+    size: 12
+    math_fontset: 'stix'
+
+# Output directories
+directories:
+  data_raw: 'data/raw'
+  data_processed: 'data/processed'
+  figures: 'figures'
+  publication_figures: 'figures/publication'
