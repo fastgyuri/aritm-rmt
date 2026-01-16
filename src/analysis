@@ -1,0 +1,165 @@
+"""
+Analysis functions for record gaps.
+"""
+
+import math
+import numpy as np
+from scipy import stats
+from typing import Dict, List, Tuple
+import pandas as pd
+
+def analyze_record_gaps(starts: List[int], gaps: List[int]) -> Dict:
+    """
+    Analyze record gaps and compute statistics.
+    
+    Args:
+        starts: Starting primes of record gaps
+        gaps: Record gap sizes
+        
+    Returns:
+        Dictionary with analysis results
+    """
+    # Calculate normalized gaps R_n
+    R = []
+    for p, g in zip(starts, gaps):
+        if p <= 1:
+            R.append(0.0)
+        else:
+            R.append(g / (math.log(p) ** 2))
+    
+    # Filter for p > 10^4
+    mask = [p > 10000 for p in starts]
+    log_p_filtered = [math.log(p) for p, m in zip(starts, mask) if m]
+    R_filtered = [r for r, m in zip(R, mask) if m]
+    
+    # Linear regression for p > 10^4
+    if len(log_p_filtered) > 2:
+        slope, intercept, r_value, p_value, std_err = stats.linregress(log_p_filtered, R_filtered)
+    else:
+        slope = intercept = r_value = p_value = std_err = 0
+    
+    # Calculate predicted R values
+    R_pred = [intercept + slope * math.log(p) for p in starts if p > 10000]
+    
+    # Calculate residuals
+    residuals = [R_filtered[i] - R_pred[i] for i in range(len(R_filtered))]
+    
+    return {
+        'R_values': R,
+        'global_slope': slope,
+        'intercept': intercept,
+        'r_squared': r_value**2,
+        'p_value': p_value,
+        'slope_std_err': std_err,
+        'filtered_count': len(log_p_filtered),
+        'residuals': residuals,
+        'log_p_filtered': log_p_filtered,
+        'R_filtered': R_filtered
+    }
+
+def analyze_rebounds(R: List[float], starts: List[int]) -> Dict:
+    """
+    Analyze rebound patterns in R sequence.
+    
+    Args:
+        R: Normalized gap values
+        starts: Corresponding starting primes
+        
+    Returns:
+        Dictionary with rebound statistics
+    """
+    rebounds = []
+    deltas = []
+    
+    for i in range(len(R) - 1):
+        delta = R[i+1] - R[i]
+        deltas.append(delta)
+        
+        if delta > 0:
+            rebounds.append((i, starts[i], starts[i+1], R[i], R[i+1], delta))
+    
+    # Statistics
+    if deltas:
+        deltas_array = np.array(deltas)
+        stats_dict = {
+            'rebounds': rebounds,
+            'deltas': deltas,
+            'count': len(rebounds),
+            'percentage': 100 * len(rebounds) / len(deltas) if deltas else 0,
+            'mean_amplitude': float(np.mean(deltas_array)),
+            'median_amplitude': float(np.median(deltas_array)),
+            'std_amplitude': float(np.std(deltas_array)),
+            'min_amplitude': float(np.min(deltas_array)),
+            'max_amplitude': float(np.max(deltas_array)),
+            'positive_count': np.sum(deltas_array > 0),
+            'negative_count': np.sum(deltas_array < 0),
+            'zero_count': np.sum(deltas_array == 0)
+        }
+        
+        # Autocorrelation
+        if len(deltas) > 1:
+            autocorr = np.corrcoef(deltas_array[:-1], deltas_array[1:])[0,1]
+            stats_dict['autocorrelation'] = float(autocorr)
+        else:
+            stats_dict['autocorrelation'] = 0
+            
+        # Large rebounds (|Δ| > 0.1)
+        large_rebounds = np.sum(np.abs(deltas_array) > 0.1)
+        stats_dict['large_rebounds'] = int(large_rebounds)
+        stats_dict['large_percentage'] = 100 * large_rebounds / len(deltas) if deltas else 0
+        
+        # Shapiro-Wilk test for normality (limited to 5000 points)
+        if len(deltas) > 3:
+            shapiro_stat, shapiro_p = stats.shapiro(deltas_array[:min(5000, len(deltas_array))])
+            stats_dict['shapiro_stat'] = float(shapiro_stat)
+            stats_dict['shapiro_p'] = float(shapiro_p)
+        else:
+            stats_dict['shapiro_stat'] = 0
+            stats_dict['shapiro_p'] = 1
+            
+    else:
+        stats_dict = {
+            'rebounds': [],
+            'deltas': [],
+            'count': 0,
+            'percentage': 0,
+            'mean_amplitude': 0,
+            'median_amplitude': 0,
+            'std_amplitude': 0,
+            'min_amplitude': 0,
+            'max_amplitude': 0,
+            'positive_count': 0,
+            'negative_count': 0,
+            'zero_count': 0,
+            'autocorrelation': 0,
+            'large_rebounds': 0,
+            'large_percentage': 0,
+            'shapiro_stat': 0,
+            'shapiro_p': 1
+        }
+    
+    return stats_dict
+
+def calculate_rebound_distances(rebounds: List[Tuple]) -> Dict:
+    """
+    Calculate distances between consecutive rebounds.
+    
+    Args:
+        rebounds: List of rebound tuples
+        
+    Returns:
+        Dictionary with distance statistics
+    """
+    if len(rebounds) < 2:
+        return {}
+    
+    indices = [r[0] for r in rebounds]
+    distances = [indices[i+1] - indices[i] for i in range(len(indices)-1)]
+    
+    return {
+        'distances': distances,
+        'mean_distance': np.mean(distances) if distances else 0,
+        'median_distance': np.median(distances) if distances else 0,
+        'min_distance': np.min(distances) if distances else 0,
+        'max_distance': np.max(distances) if distances else 0
+    }
